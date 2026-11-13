@@ -1,0 +1,20 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "tests/*"
+  - "tooling/*"
+
+# pnpm 10 blocks dependency build scripts unless allow-listed; wrangler's
+# workerd and esbuild need theirs to verify their platform binaries.
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+  - sharp
+
+# crossws is Nitro's WebSocket layer (its Cloudflare adapter runs the room in
+# the Durable Object). apps/web/server/utils/presence.ts extends the state
+# crossws 0.4.6 serializes into each socket's attachment, and tests/web drives
+# the room through the same adapter: one exact version for both, so a bump is
+# a deliberate change the tests re-check.
+overrides:
+  crossws: 0.4.6

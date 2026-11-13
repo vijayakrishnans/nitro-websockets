@@ -1,0 +1,35 @@
+node_modules/
+dist/
+.next/
+.open-next/
+.wrangler/
+.turbo/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+.dev.vars
+.dev.vars.*
+*.log
+plan.json
+next-env.d.ts
+
+# Nitro's build output, generated types and local data (the template's own
+# .gitignore names the same).
+.output/
+.nitro/
+.data/
+.cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
+.workspace/
+
+# orun per-job staged workspaces and object-model caches.
+**/.orun/runs/
+**/.orun/
+

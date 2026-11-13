@@ -1,0 +1,25 @@
+// The template's: `nitro/tsconfig` (Nitro's own base, with its auto-import
+// types), React's JSX, and the `@/` alias onto app/. Strict, as the rest of the
+// workspace is. The lint config is excluded: eslint checks it, not the app's
+// types.
+{
+  "extends": "nitro/tsconfig",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "paths": {
+      "@/*": ["./app/*"]
+    }
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "server/**/*.ts",
+    "shared/**/*.ts",
+    "vite.config.ts"
+  ],
+  "exclude": ["eslint.config.js", "node_modules", ".output", ".nitro"]
+}

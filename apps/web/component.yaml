@@ -1,0 +1,90 @@
+apiVersion: sourceplane.io/v1
+kind: Component
+metadata:
+  name: web
+  description: The realtime room and its page (one Cloudflare Worker built by Vite and Nitro's cloudflare_durable preset, its room one Durable Object, with Static Assets, per environment)
+spec:
+  type: cloudflare-worker-turbo
+  lifecycle: production
+  owner: platform
+  # Its pages, attached to it in the workspace's catalog: what the Docs
+  # library shows for it, and what the catalog's docs and runbook checks read.
+  # Generated from what this manifest and its sources declare.
+  docs:
+    overview: docs/overview.md
+    pages:
+      - { path: docs/architecture.md, role: architecture, title: Architecture }
+      - { path: docs/runbook.md, role: runbook, title: Runbook }
+  # `app`, not `web`: a domain and a component share one name space in the
+  # catalog, and a domain called `web` would take this component's place in
+  # it — the site missing from its own catalog.
+  domain: app
+  path: apps/web
+  # No dependsOn: the site reads no wiring and binds nothing that needs a
+  # resource ID (its Durable Object is created by its own deploy, from the
+  # migration in wrangler.jsonc), so there is no infra component to deploy
+  # before it. A component under infra/ that this
+  # Worker comes to read wiring from goes here, `mode: enforced` on
+  # github-push-main and advisory on pull requests, so one convergence applies
+  # it first.
+  subscribe:
+    environments:
+      - name: dev
+        profile: verify
+      - name: stage
+        profile: verify
+        profileRules:
+          - profile: deploy
+            when:
+              triggerRef: github-push-main
+      - name: prod
+        profile: verify
+        profileRules:
+          - profile: deploy
+            when:
+              triggerRef: github-push-main
+  parameters:
+    nodeVersion: "22"
+    pnpmVersion: "10.12.1"
+
+    workspaceDir: ../..
+    appDir: .
+
+    turboFilter: "@app/web"
+    # Committed, not rendered: the Worker binds nothing that needs a resource
+    # ID (ASSETS is its build output; the Durable Object is declared by class
+    # and created by the deploy from wrangler.jsonc's migration), so there is
+    # nothing to wire, and the lanes' structure check (`test -f`, before any
+    # build) finds it in a fresh checkout. Its `main` and `assets` name what
+    # `vite build` writes (.output/server/index.mjs, .output/public), so the
+    # build runs before the dry run and the deploy, as the lane orders them.
+    # Per-env names come from `--env`: nitro-websockets-web-{stage,prod}.
+    wranglerConfig: wrangler.jsonc
+
+    installCommand: pnpm install --frozen-lockfile
+    buildCommand: pnpm exec turbo run build --filter=@app/web
+    typecheckCommand: pnpm exec turbo run typecheck --filter=@app/web
+
+    dryRunCommand: pnpm exec wrangler deploy --dry-run --config wrangler.jsonc --env prod
+    deployCommand: pnpm exec wrangler deploy --config wrangler.jsonc --env prod
+
+    preDeployCommand: "echo 'No pre-deploy step configured.'"
+    migrationCommand: "echo 'No migrations configured.'"
+    # Smoke: /api/health answers `"status":"ok"` for THIS environment — the
+    # environment comes from the `env.<name>` vars the deploy used, so a stale
+    # or wrong Worker fails it (not the site's name, which is the owner's to
+    # change) — and /api/ws answers a WebSocket handshake with 101, which only
+    # a Worker whose upgrade reached the room's Durable Object can (the
+    # connection is dropped after 3 s, so a visitor may see a passer-by join
+    # and leave). The Worker composition exports no deployed URL, so the
+    # command names its own workers.dev URL; ${DEPLOYED_URL} overrides it (a
+    # custom domain, or a local `wrangler dev`). ${ORUN_ENVIRONMENT} the runner
+    # sets for every step. Bodies are buffered before grep so an early match
+    # cannot SIGPIPE curl.
+    smokeCommand: 'base="${DEPLOYED_URL:-https://nitro-websockets-web-${ORUN_ENVIRONMENT}.vijayakrishnan12994.workers.dev}" && health="$(curl -sf --max-time 20 "${base}/api/health")" && echo "${health}" | grep -q "\"status\":\"ok\"" && echo "${health}" | grep -q "\"environment\":\"${ORUN_ENVIRONMENT}\"" && upgrade="$(curl -s -i -N --http1.1 --max-time 3 -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" "${base}/api/ws" || true)" && echo "${upgrade}" | grep -q "HTTP/1.1 101"'
+  labels:
+    team: platform
+    layer: runtime
+    surface: web
+    runtime: cloudflare
+# orun: redeploy 01-product as_fb9a143f1ecc430d9988
