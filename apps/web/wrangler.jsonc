@@ -1,0 +1,72 @@
+// The Worker's config, committed as-is (no wiring template): it binds nothing
+// that needs a resource ID. Orun deploys with `--env stage` / `--env prod`;
+// wrangler names the Worker nitro-websockets-web-<env> from the top-level name.
+// Each environment's ENVIRONMENT var is what GET /api/health reports.
+//
+// How the Nitro app runs here:
+// - `vite build` (Nitro's cloudflare_durable preset, vite.config.ts) emits
+//   the Worker as .output/server/index.mjs and the React page's assets as
+//   .output/public; wrangler bundles the first and uploads the second. Nitro's
+//   own generated config is off (deployConfig: false), so this is the one
+//   config a deploy reads.
+// - The Worker serves the page (the template's single-page renderer) and
+//   sends every WebSocket upgrade on /api/ws to ONE Durable Object, the room:
+//   the preset's exported class `$DurableObject`, bound under the same name
+//   (both names are the preset's, fixed). crossws accepts each connection
+//   there as a hibernatable WebSocket, so a quiet room costs nothing while its
+//   sockets stay open.
+// - `durable_objects` is repeated in every env block: wrangler does not
+//   inherit it into an environment. `migrations` are top-level only and apply
+//   to every environment's Worker. `new_sqlite_classes`: the SQLite-backed
+//   class, which Workers Free runs.
+// - `assets` with the ASSETS binding: Workers Static Assets serves every file
+//   the build wrote before the Worker runs, and the preset's own asset check
+//   goes through env.ASSETS.
+// - nodejs_compat: the output imports node: builtins.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nitro-websockets-web",
+  "main": "./.output/server/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./.output/public",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "$DurableObject", "class_name": "$DurableObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["$DurableObject"] }],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENVIRONMENT": "local"
+  },
+  "env": {
+    "dev": {
+      "durable_objects": {
+        "bindings": [{ "name": "$DurableObject", "class_name": "$DurableObject" }]
+      },
+      "vars": {
+        "ENVIRONMENT": "dev"
+      }
+    },
+    "stage": {
+      "durable_objects": {
+        "bindings": [{ "name": "$DurableObject", "class_name": "$DurableObject" }]
+      },
+      "vars": {
+        "ENVIRONMENT": "stage"
+      }
+    },
+    "prod": {
+      "durable_objects": {
+        "bindings": [{ "name": "$DurableObject", "class_name": "$DurableObject" }]
+      },
+      "vars": {
+        "ENVIRONMENT": "prod"
+      }
+    }
+  }
+}
